@@ -1,0 +1,6 @@
+paddleocr==2.8.1
+flask
+flask-cors
+opencv-python-headless
+numpy
+Pillow
