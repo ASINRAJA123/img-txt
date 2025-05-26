@@ -1,6 +1,6 @@
 // services/api.js
 
-const API_BASE_URL = 'https://img-txt-0h4v.onrender.com/api';
+const API_BASE_URL = 'https://img-txt1.onrender.com/api';
 
 export const extractText = async (imageDataUrl) => {
   try {
