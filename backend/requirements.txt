@@ -4,4 +4,4 @@ flask-cors
 opencv-python-headless
 numpy
 Pillow
-paddlepaddle==2.5.0  # or latest stable CPU-only version
+paddlepaddle==2.6.2
