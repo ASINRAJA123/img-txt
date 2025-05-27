@@ -1,55 +1,43 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from paddleocr import PaddleOCR
+import easyocr
 import cv2
 import numpy as np
 import base64
 import io
 from PIL import Image
-import os
-import tempfile
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize OCR model (enable angle classification with cls=True)
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
+# Initialize EasyOCR Reader (lang='en' for English)
+reader = easyocr.Reader(['en'], gpu=False)  # Set gpu=True if you have GPU support
 
 def extract_text_from_image(image_data):
     try:
         # Convert base64 to image
         if image_data.startswith('data:image'):
-            # Remove the data URL prefix
             image_data = image_data.split(',')[1]
         
-        # Decode base64 to bytes
         image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
         
-        # Convert bytes to PIL Image
-        pil_image = Image.open(io.BytesIO(image_bytes))
+        # Convert PIL Image to numpy array (RGB)
+        image_np = np.array(pil_image)
         
-        # Convert PIL Image to OpenCV format
-        opencv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        
-        # Run OCR
-        result = ocr.ocr(opencv_image, cls=True)
+        # EasyOCR expects RGB, so no need to convert color spaces here
+        result = reader.readtext(image_np)
 
-        # Return empty string if result is None or not in expected format
         if not result or not isinstance(result, list):
             return ""
 
         extracted_text = []
 
-        # Extract text from OCR result
-        for line in result:
-            if not line:
-                continue
-            for word_info in line:
-                if len(word_info) >= 2 and len(word_info[1]) >= 1:
-                    text = word_info[1][0]  # Extract the text part
-                    extracted_text.append(text)
+        # result is a list of tuples: (bbox, text, confidence)
+        for detection in result:
+            text = detection[1]
+            extracted_text.append(text)
 
-        # Combine and clean up
         clean_text = ' '.join(extracted_text).replace('\n', ' ').strip()
         return clean_text
     
@@ -66,8 +54,6 @@ def extract_text():
             return jsonify({'error': 'No image data provided'}), 400
         
         image_data = data['image']
-        
-        # Extract text from the image
         extracted_text = extract_text_from_image(image_data)
         
         return jsonify({
