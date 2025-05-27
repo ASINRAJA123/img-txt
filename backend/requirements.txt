@@ -1,7 +1,6 @@
-paddleocr==2.8.1
+easyocr
 flask
 flask-cors
 opencv-python-headless
 numpy
 Pillow
-paddlepaddle==2.6.2
