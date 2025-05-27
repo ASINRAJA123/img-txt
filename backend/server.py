@@ -1,46 +1,45 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import easyocr
-import cv2
-import numpy as np
 import base64
 import io
 from PIL import Image
+import requests
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize EasyOCR Reader (lang='en' for English)
-reader = easyocr.Reader(['en'], gpu=False)  # Set gpu=True if you have GPU support
+OCR_SPACE_API_KEY = 'helloworld'  # Replace with your actual API key for production
 
 def extract_text_from_image(image_data):
     try:
-        # Convert base64 to image
         if image_data.startswith('data:image'):
             image_data = image_data.split(',')[1]
-        
-        image_bytes = base64.b64decode(image_data)
-        pil_image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        
-        # Convert PIL Image to numpy array (RGB)
-        image_np = np.array(pil_image)
-        
-        # EasyOCR expects RGB, so no need to convert color spaces here
-        result = reader.readtext(image_np)
 
-        if not result or not isinstance(result, list):
+        # Decode base64 image data
+        image_bytes = base64.b64decode(image_data)
+
+        # Prepare files and payload for OCR.Space
+        files = {'file': ('image.jpg', image_bytes)}
+        payload = {
+            'apikey': OCR_SPACE_API_KEY,
+            'language': 'eng',
+            'OCREngine': 2,
+            'isOverlayRequired': False
+        }
+
+        response = requests.post('https://api.ocr.space/parse/image', files=files, data=payload)
+
+        result = response.json()
+        if result.get('IsErroredOnProcessing'):
             return ""
 
-        extracted_text = []
+        parsed_results = result.get('ParsedResults')
+        if not parsed_results:
+            return ""
 
-        # result is a list of tuples: (bbox, text, confidence)
-        for detection in result:
-            text = detection[1]
-            extracted_text.append(text)
+        extracted_text = parsed_results[0].get('ParsedText', '')
+        return extracted_text.strip()
 
-        clean_text = ' '.join(extracted_text).replace('\n', ' ').strip()
-        return clean_text
-    
     except Exception as e:
         print(f"Error processing image: {str(e)}")
         return ""
@@ -49,18 +48,19 @@ def extract_text_from_image(image_data):
 def extract_text():
     try:
         data = request.get_json()
-        
+
         if not data or 'image' not in data:
             return jsonify({'error': 'No image data provided'}), 400
-        
+
         image_data = data['image']
+
         extracted_text = extract_text_from_image(image_data)
-        
+
         return jsonify({
             'success': True,
             'text': extracted_text
         })
-    
+
     except Exception as e:
         print(f"Error in extract_text endpoint: {str(e)}")
         return jsonify({
